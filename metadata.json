@@ -1,0 +1,6 @@
+{
+  "name": "SIP-JASMAN - Pembagian Jasa Manajemen & Matriks Regulasi",
+  "description": "Aplikasi mobile kalkulator dan manajemen pembagian jasa manajemen rumah sakit berdasarkan matriks regulasi persentase resmi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

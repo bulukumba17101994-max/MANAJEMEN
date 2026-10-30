@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "PeriodData": {
+      "title": "PeriodData",
+      "description": "Data pembagian jasa manajemen rumah sakit untuk satu periode bulan dan tahun",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "label": { "type": "string" },
+        "totalFund": { "type": "number" },
+        "groups": { "type": "array" },
+        "recipients": { "type": "array" },
+        "reportConfig": { "type": "object" },
+        "savedAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "year", "month", "label", "totalFund", "groups", "recipients"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Konfigurasi aktif aplikasi SIP-JASMAN RSUD",
+      "type": "object",
+      "properties": {
+        "activePeriod": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["activePeriod"]
+    }
+  },
+  "firestore": {
+    "/periods/{periodId}": {
+      "schema": "PeriodData",
+      "description": "Dokumen periode jasa manajemen per bulan dan tahun yang sinkron real-time antardevice"
+    },
+    "/settings/{settingId}": {
+      "schema": "AppConfig",
+      "description": "Pengaturan status aktif periode yang sedang dibuka secara bersamaan"
+    }
+  }
+}
