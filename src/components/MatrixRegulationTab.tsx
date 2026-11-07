@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Table2, 
   RotateCcw, 
@@ -10,14 +10,30 @@ import {
   Info,
   Layers,
   Percent,
-  Sparkles
+  Sparkles,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  Check,
+  X,
+  ShieldCheck,
+  ShieldAlert,
+  HelpCircle
 } from 'lucide-react';
-import { RegulationGroup, DistributionSummary } from '../types/jaspel';
-import { formatRupiah, formatPercentage, validateMatrixPercentage } from '../utils/jaspelCalculations';
+import { RegulationGroup, DistributionSummary, UserProfile } from '../types/jaspel';
+import { 
+  formatRupiah, 
+  formatPercentage, 
+  validateMatrixPercentage,
+  exportRegulatoryMatrixJSON,
+  parseRegulatoryMatrixFile
+} from '../utils/jaspelCalculations';
+import { ROLE_PERMISSIONS } from '../services/auth';
 
 interface MatrixRegulationTabProps {
   summary: DistributionSummary;
   groups: RegulationGroup[];
+  currentUser: UserProfile;
   onUpdateGroups: (groups: RegulationGroup[]) => void;
   onResetGroups: () => void;
   onAddGroupModal: () => void;
@@ -26,6 +42,7 @@ interface MatrixRegulationTabProps {
 export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   summary,
   groups,
+  currentUser,
   onUpdateGroups,
   onResetGroups,
   onAddGroupModal,
@@ -33,8 +50,12 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editPercentageVal, setEditPercentageVal] = useState<string>('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const permissions = ROLE_PERMISSIONS[currentUser.role];
   const { totalPercentage, isValid, delta } = validateMatrixPercentage(groups);
+  const compliance = summary.complianceReport;
 
   const categories = [
     { id: 'all', label: 'Semua Kategori' },
@@ -52,6 +73,10 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   });
 
   const handleStartEdit = (group: RegulationGroup) => {
+    if (!permissions.canEditMatrix) {
+      alert('Peran Anda saat ini (' + currentUser.role + ') hanya memiliki akses baca. Silakan beralih ke peran Admin untuk mengubah persentase regulasi SK.');
+      return;
+    }
     setEditingGroupId(group.id);
     setEditPercentageVal(group.percentage.toString());
   };
@@ -66,250 +91,378 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   };
 
   const handleDeleteGroup = (groupId: string, name: string) => {
-    if (window.confirm(`Hapus aturan kelompok "${name}" dari matriks regulasi?`)) {
+    if (!permissions.canEditMatrix) {
+      alert('Hanya Administrator yang memiliki wewenang menghapus pasal/kelompok regulasi.');
+      return;
+    }
+    if (window.confirm(`Hapus aturan kelompok "${name}" dari matriks regulasi SK?`)) {
       const updated = groups.filter((g) => g.id !== groupId);
       onUpdateGroups(updated);
     }
   };
 
   const handleAutoBalance = () => {
+    if (!permissions.canEditMatrix) {
+      alert('Hanya Administrator yang memiliki wewenang menyeimbangkan matriks.');
+      return;
+    }
     if (groups.length === 0) return;
-    // Distribute delta to the last or biggest group, or proportionally
     const currentSum = groups.reduce((acc, g) => acc + g.percentage, 0);
     if (currentSum <= 0) return;
 
     const factor = 100 / currentSum;
     const balanced = groups.map((g) => ({
       ...g,
-      percentage: Math.round(g.percentage * factor * 1000) / 1000,
+      percentage: Math.round(g.percentage * factor * 100) / 100,
     }));
+
+    // Rounding adjustment on last group
+    const newSum = balanced.reduce((acc, g) => acc + g.percentage, 0);
+    const diff = Math.round((100 - newSum) * 100) / 100;
+    if (diff !== 0 && balanced.length > 0) {
+      balanced[balanced.length - 1].percentage = Math.round((balanced[balanced.length - 1].percentage + diff) * 100) / 100;
+    }
 
     onUpdateGroups(balanced);
   };
 
+  // Download Matrix Template (JSON)
+  const handleDownloadTemplate = () => {
+    const jsonStr = exportRegulatoryMatrixJSON(groups);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Matriks_Regulasi_Jasa_Manajemen_RSUD_Siwa.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Upload Matrix File (JSON or CSV)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const isJson = file.name.endsWith('.json');
+        const importedGroups = parseRegulatoryMatrixFile(content, isJson);
+
+        if (window.confirm(`Berhasil membaca ${importedGroups.length} aturan regulasi dari berkas "${file.name}". Terapkan ke sistem sekarang?`)) {
+          onUpdateGroups(importedGroups);
+          setUploadNotice(`Berhasil mengimpor ${importedGroups.length} kelompok regulasi.`);
+          setTimeout(() => setUploadNotice(null), 3500);
+        }
+      } catch (err: any) {
+        alert(`Gagal mengimpor berkas matriks: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div className="space-y-5 pb-24 max-w-5xl mx-auto px-4 sm:px-6 pt-4">
+      {/* Hidden File Input for Regulatory Matrix Upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,.csv"
+        className="hidden"
+        onChange={handleFileUpload}
+      />
+
       {/* Header Info & Balance Banner */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Table2 className="w-5 h-5 text-teal-600" />
-              Matriks Regulasi SK Pembagian Jasa Manajemen
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+                Regulasi &amp; Kepatuhan
+              </span>
+              <span className="text-xs text-slate-400">SK Direktur RSUD Siwa</span>
+            </div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-1">
+              <Table2 className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+              <span>Kelola Matriks Regulasi SK Pembagian Jasa Manajemen</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Tabel persentase ketetapan resmi per kelompok jabatan dan eselon
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Tabel persentase ketetapan resmi per kelompok jabatan dan eselon sesuai regulasi rumah sakit
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onResetGroups}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span>Reset Matriks SK</span>
-            </button>
-            <button
-              onClick={onAddGroupModal}
-              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tambah Aturan</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 100% Precision Balance Meter */}
-        <div className={`p-4 rounded-xl border ${isValid ? 'bg-emerald-50/70 border-emerald-200' : 'bg-amber-50/70 border-amber-200'}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl shrink-0 ${isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                {isValid ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-              </div>
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-bold text-slate-900">
-                    Total Porsi Regulasi:
-                  </span>
-                  <span className={`text-base font-extrabold tabular-nums ${isValid ? 'text-emerald-700' : 'text-amber-700'}`}>
-                    {formatPercentage(totalPercentage)}
-                  </span>
-                  <span className="text-xs text-slate-500">/ 100,00%</span>
-                </div>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  {isValid 
-                    ? 'Seluruh anggaran teralokasi secara sempurna ke 15 kelompok regulasi tanpa surplus/defisit.'
-                    : `Terdapat selisih porsi sebesar ${delta > 0 ? `kekurangan ${delta}%` : `kelebihan ${Math.abs(delta)}%`}.`}
-                </p>
-              </div>
-            </div>
-
-            {!isValid && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Upload Matrix Requirements Button */}
+            {permissions.canUploadMatrix && (
               <button
-                onClick={handleAutoBalance}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shrink-0 transition-colors shadow-xs"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Unggah berkas aturan regulasi (JSON atau CSV)"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Seimbangkan 100% Otomatis</span>
+                <Upload className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span>Unggah Matriks</span>
+              </button>
+            )}
+
+            {/* Download Matrix Template */}
+            <button
+              onClick={handleDownloadTemplate}
+              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+              title="Unduh templat aturan regulasi JSON untuk arsip atau editing offline"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span>Unduh Templat</span>
+            </button>
+
+            {/* Reset to CSV baseline button */}
+            {permissions.canEditMatrix && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Kembalikan matriks regulasi ke ketetapan awal SK Direktur (15 Kelompok)?')) {
+                    onResetGroups();
+                  }
+                }}
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Reset ke persentase default SK"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset SK</span>
+              </button>
+            )}
+
+            {/* Add Rule Button */}
+            {permissions.canEditMatrix && (
+              <button
+                onClick={onAddGroupModal}
+                className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Aturan</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Category Filter Tabs */}
-        <div>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCategoryFilter(c.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
-                  selectedCategoryFilter === c.id
-                    ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+        {uploadNotice && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-2xl text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{uploadNotice}</span>
+          </div>
+        )}
+
+        {/* AUTOMATED REGULATORY COMPLIANCE VALIDATOR BANNER */}
+        <div
+          className={`p-4 rounded-2xl border transition-all ${
+            isValid && compliance.isCompliant
+              ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/80 text-emerald-950 dark:text-emerald-200'
+              : 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/80 text-rose-950 dark:text-rose-200'
+          }`}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-3">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  isValid && compliance.isCompliant
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
                 }`}
               >
-                {c.label}
+                {isValid && compliance.isCompliant ? (
+                  <ShieldCheck className="w-5 h-5" />
+                ) : (
+                  <ShieldAlert className="w-5 h-5" />
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Validasi Kepatuhan Matriks
+                  </span>
+                  <span className="text-xs font-black">
+                    {formatPercentage(totalPercentage)} / 100,00%
+                  </span>
+                </div>
+                <p className="text-xs font-semibold mt-0.5">
+                  {isValid && compliance.isCompliant
+                    ? 'Seluruh anggaran teralokasi secara sempurna ke 15 kelompok regulasi tanpa surplus/defisit.'
+                    : delta > 0
+                    ? `Alokasi belum genap 100%. Tersisa ${formatPercentage(delta)} dana belum diatur.`
+                    : `Alokasi melebihi 100% sebesar ${formatPercentage(Math.abs(delta))}. Berpotensi defisit pagu.`}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Auto-Balance Button */}
+            {!isValid && permissions.canEditMatrix && (
+              <button
+                onClick={handleAutoBalance}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Seimbangkan Otomatis</span>
               </button>
-            ))}
+            )}
           </div>
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategoryFilter(cat.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                selectedCategoryFilter === cat.id
+                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Regulation Matrix Cards & Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
-            Menampilkan <span className="font-semibold text-slate-800">{filteredAllocations.length}</span> aturan kelompok regulasi
-          </div>
-          <div className="text-xs text-slate-500 font-medium">
-            Total Dana: <span className="font-bold text-slate-900 tabular-nums">{formatRupiah(summary.totalFund)}</span>
-          </div>
+      {/* Regulatory Rules List */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-5 bg-slate-50/70 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+          <span>
+            Menampilkan <strong>{filteredAllocations.length}</strong> aturan kelompok regulasi
+          </span>
+          <span>
+            Pagu Dana: <strong>{formatRupiah(summary.totalFund)}</strong>
+          </span>
         </div>
 
-        {/* Matrix List (Optimized for Mobile Touch) */}
-        <div className="divide-y divide-slate-100">
-          {filteredAllocations.map((alloc, idx) => {
-            const { group, allocatedAmount, activeMemberCount, totalMemberCount, amountPerMember } = alloc;
-            const isEditing = editingGroupId === group.id;
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {filteredAllocations.map((alloc, index) => {
+            const isEditing = editingGroupId === alloc.group.id;
+            const hasZeroActive = alloc.activeMemberCount === 0 && !alloc.group.isSpecialGroup;
 
             return (
-              <div 
-                key={group.id} 
-                className="p-4 sm:p-5 hover:bg-slate-50/70 transition-colors space-y-3"
+              <div
+                key={alloc.group.id}
+                className="p-4 sm:p-5 hover:bg-slate-50/60 dark:hover:bg-slate-850/40 transition-colors space-y-3"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      {idx + 1}
+                    <span className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-slate-600 dark:text-slate-300 text-xs flex items-center justify-center shrink-0">
+                      {index + 1}
                     </span>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                          {group.name}
-                        </h3>
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                          {group.category}
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                          {alloc.group.name}
+                        </h4>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          {alloc.group.category}
                         </span>
+                        {alloc.group.isSpecialGroup && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                            Pooled / Kolektif
+                          </span>
+                        )}
+                        {hasZeroActive && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            0 Anggota Aktif
+                          </span>
+                        )}
                       </div>
-                      {group.description && (
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {group.description}
-                        </p>
-                      )}
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {alloc.group.description || 'Alokasi jasa manajemen sesuai SK Direktur'}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Edit/Delete triggers */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleStartEdit(group)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-colors"
-                      title="Ubah Persentase"
-                      aria-label="Ubah Persentase"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    {!['kabag_kabid', 'kasubag_kasie', 'pengelola'].includes(group.id) && (
-                      <button
-                        onClick={() => handleDeleteGroup(group.id, group.name)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                        title="Hapus Aturan"
-                        aria-label="Hapus Aturan"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {permissions.canEditMatrix && (
+                      <>
+                        <button
+                          onClick={() => handleStartEdit(alloc.group)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Edit persentase aturan"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        {groups.length > 1 && (
+                          <button
+                            onClick={() => handleDeleteGroup(alloc.group.id, alloc.group.name)}
+                            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                            title="Hapus kelompok"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
 
-                {/* Percentage Edit Form (if active) */}
+                {/* Inline Editing or Display */}
                 {isEditing ? (
-                  <div className="p-3 bg-teal-50/80 rounded-xl border border-teal-200 flex flex-wrap items-center gap-3">
+                  <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-teal-900">Persentase Baru:</span>
-                      <div className="relative w-28">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editPercentageVal}
-                          onChange={(e) => setEditPercentageVal(e.target.value)}
-                          className="w-full pl-3 pr-7 py-1.5 text-sm font-bold text-slate-900 bg-white border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 tabular-nums"
-                          autoFocus
-                        />
-                        <span className="absolute right-2.5 top-2 text-xs font-bold text-slate-400">%</span>
-                      </div>
+                      <label className="text-xs font-bold text-teal-950 dark:text-teal-200">
+                        Persentase Baru (%):
+                      </label>
+                      <input
+                        type="text"
+                        value={editPercentageVal}
+                        onChange={(e) => setEditPercentageVal(e.target.value)}
+                        className="w-24 px-2.5 py-1 rounded-lg border border-teal-300 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white tabular-nums"
+                        autoFocus
+                      />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => handleSavePercentage(group.id)}
-                        className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold rounded-lg shadow-2xs"
+                        onClick={() => setEditingGroupId(null)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:bg-white/80 dark:hover:bg-slate-800"
+                        title="Batal"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleSavePercentage(alloc.group.id)}
+                        className="px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 shadow-2xs"
                       >
                         Simpan
                       </button>
-                      <button
-                        onClick={() => setEditingGroupId(null)}
-                        className="px-3 py-1.5 bg-white text-slate-600 hover:bg-slate-100 text-xs font-medium rounded-lg border border-slate-200"
-                      >
-                        Batal
-                      </button>
                     </div>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800/80 text-xs">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Porsi SK:</span>
+                      <span className="font-extrabold text-teal-700 dark:text-teal-300 tabular-nums text-sm">
+                        {formatPercentage(alloc.group.percentage)}
+                      </span>
+                    </div>
 
-                {/* Metric Summary Grid for this Group */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
-                  {/* Porsi % */}
-                  <div>
-                    <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
-                      Porsi SK
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold text-teal-800 tabular-nums mt-0.5 block">
-                      {formatPercentage(group.percentage)}
-                    </span>
-                  </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Total Alokasi Kelompok:</span>
+                      <span className="font-bold text-slate-900 dark:text-white tabular-nums">
+                        {formatRupiah(alloc.allocatedAmount)}
+                      </span>
+                    </div>
 
-                  {/* Total Alokasi Rp */}
-                  <div>
-                    <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
-                      Total Alokasi
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 tabular-nums mt-0.5 block truncate">
-                      {formatRupiah(allocatedAmount)}
-                    </span>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">
+                        Per Pegawai ({alloc.activeMemberCount} org):
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-white tabular-nums">
+                        {alloc.activeMemberCount > 0
+                          ? formatRupiah(alloc.amountPerMember)
+                          : alloc.group.isSpecialGroup
+                          ? `${formatRupiah(alloc.amountPerMember)} (Pagu Kolektif)`
+                          : 'Rp 0 (Cuti / Kosong)'}
+                      </span>
+                    </div>
                   </div>
-
-                  {/* Nominal per Orang */}
-                  <div>
-                    <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
-                      Per Pegawai ({activeMemberCount} org)
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold text-emerald-700 tabular-nums mt-0.5 block truncate">
-                      {formatRupiah(amountPerMember)}
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })}

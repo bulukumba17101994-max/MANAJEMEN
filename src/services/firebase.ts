@@ -48,14 +48,43 @@ export function subscribeToPeriods(
   const unsubscribe = onSnapshot(
     periodsCollection,
     (snapshot) => {
-      const archives: PeriodArchive[] = [];
+      const archivesMap = new Map<string, PeriodArchive>();
       snapshot.forEach((docSnap) => {
         const data = docSnap.data() as PeriodArchive;
-        if (data && data.id) {
-          archives.push(data);
+        const docId = docSnap.id;
+        if (data && (data.label || docId)) {
+          archivesMap.set(docId, {
+            ...data,
+            id: docId,
+          });
         }
       });
-      onUpdate(archives);
+
+      // Strict deduplication by both ID and normalized label to prevent any duplicate keys or items
+      const uniqueList: PeriodArchive[] = [];
+      const seenIds = new Set<string>();
+      const seenLabels = new Set<string>();
+
+      // Sort by savedAt descending so latest saved version is preferred
+      const allItems = Array.from(archivesMap.values()).sort(
+        (a, b) => new Date(b.savedAt || 0).getTime() - new Date(a.savedAt || 0).getTime()
+      );
+
+      for (const item of allItems) {
+        const idKey = (item.id || `${item.year}-${item.month}`).trim();
+        const labelKey = (item.label || idKey).trim().toLowerCase();
+
+        if (!seenIds.has(idKey) && !seenLabels.has(labelKey)) {
+          seenIds.add(idKey);
+          seenLabels.add(labelKey);
+          uniqueList.push({
+            ...item,
+            id: idKey,
+          });
+        }
+      }
+
+      onUpdate(uniqueList);
     },
     (error) => {
       console.error('Real-time sync listener error:', error);
@@ -71,7 +100,7 @@ export function subscribeToPeriods(
  */
 export async function savePeriodToCloud(archive: PeriodArchive): Promise<void> {
   try {
-    const cleanId = archive.id.replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const cleanId = (archive.id || `${archive.year}-${archive.month}`).replace(/[^a-zA-Z0-9_\-]/g, '_');
     const periodDocRef = doc(db, 'periods', cleanId);
     
     // Ensure all data fields are serializable
@@ -93,10 +122,21 @@ export async function savePeriodToCloud(archive: PeriodArchive): Promise<void> {
 /**
  * Delete a period document from Firestore across all devices.
  */
-export async function deletePeriodFromCloud(periodId: string): Promise<void> {
+export async function deletePeriodFromCloud(periodId: string, label?: string): Promise<void> {
   try {
     const cleanId = periodId.replace(/[^a-zA-Z0-9_\-]/g, '_');
     await deleteDoc(doc(db, 'periods', cleanId));
+
+    // Also check and clean up any other doc that shares this cleanId or label
+    const snap = await getDocs(collection(db, 'periods'));
+    const deletes: Promise<void>[] = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      if (d.id === cleanId || (label && data.label === label)) {
+        deletes.push(deleteDoc(doc(db, 'periods', d.id)));
+      }
+    });
+    await Promise.all(deletes);
   } catch (err) {
     console.error('Failed to delete period from cloud:', err);
     throw err;

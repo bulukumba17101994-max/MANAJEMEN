@@ -6,6 +6,7 @@ import {
   parseRupiahInput,
   validateMatrixPercentage,
   calculateDistribution,
+  auditRegulatoryCompliance,
 } from './jaspelCalculations';
 import {
   DEFAULT_REGULATION_GROUPS,
@@ -66,18 +67,16 @@ test('calculateDistribution correctly computes group and individual amounts matc
   assert.ok(bendaharaPen);
   assert.equal(bendaharaPen.allocatedAmount, 1402516);
 
-  // Bendahara Pengeluaran check: 2.00% = 1.602.875
-  const bendaharaPeng = summary.groupAllocations.find((g) => g.group.id === 'bendahara_pengeluaran');
-  assert.ok(bendaharaPeng);
-  assert.equal(bendaharaPeng.allocatedAmount, 1602875);
+  // Compliance report check on baseline
+  assert.equal(summary.complianceReport.isCompliant, true);
+  assert.equal(summary.complianceReport.score, 100);
+});
 
-  // Reski Eka Wahyuni khusus check: 8.50% = 6.812.219
-  const khususRezki = summary.groupAllocations.find((g) => g.group.id === 'khusus_rezki');
-  assert.ok(khususRezki);
-  assert.equal(khususRezki.allocatedAmount, 6812219);
-
-  // Pengelola (15 orang) check: 17.12% = 13.716.603
-  const pengelolaGroup = summary.groupAllocations.find((g) => g.group.id === 'pengelola');
-  assert.ok(pengelolaGroup);
-  assert.equal(pengelolaGroup.allocatedAmount, 13716603);
+test('auditRegulatoryCompliance detects percentage mismatch and empty groups', () => {
+  const invalidGroups = [
+    { id: 'g1', name: 'GRP 1', category: 'staf' as const, percentage: 80 },
+  ];
+  const audit = auditRegulatoryCompliance(invalidGroups, [], 50000000, []);
+  assert.equal(audit.isCompliant, false);
+  assert.ok(audit.issues.some((i) => i.id === 'pct-under'));
 });

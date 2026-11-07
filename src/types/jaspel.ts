@@ -6,6 +6,49 @@ export type CategoryTier =
   | 'khusus' 
   | 'pengelola';
 
+export type UserRole = 'admin' | 'manager' | 'employee';
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  title: string;
+}
+
+export type PeriodApprovalStatus = 'draft' | 'pending_approval' | 'approved';
+
+export interface PeriodApprovalInfo {
+  status: PeriodApprovalStatus;
+  submittedBy?: string;
+  submittedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+}
+
+export type ComplianceSeverity = 'error' | 'warning' | 'info';
+
+export interface ComplianceIssue {
+  id: string;
+  title: string;
+  description: string;
+  severity: ComplianceSeverity;
+  groupId?: string;
+  suggestedFix?: string;
+}
+
+export interface ComplianceAuditReport {
+  isCompliant: boolean;
+  score: number; // 0 - 100%
+  issues: ComplianceIssue[];
+  totalPercentage: number;
+  unassignedRecipientsCount: number;
+  emptyGroupsCount: number;
+  deficitOrSurplus: number;
+}
+
 export interface RegulationGroup {
   id: string;
   name: string;
@@ -14,6 +57,8 @@ export interface RegulationGroup {
   description?: string;
   defaultMemberCount?: number;
   isSpecialGroup?: boolean; // For pooled groups like Pengelola (15 orang) or individual specific
+  maxCapPercentage?: number;
+  minFloorPercentage?: number;
 }
 
 export interface Recipient {
@@ -68,6 +113,7 @@ export interface PeriodArchive {
   groups: RegulationGroup[];
   recipients: Recipient[];
   reportConfig?: ReportConfig;
+  approvalInfo?: PeriodApprovalInfo;
   notes?: string;
 }
 
@@ -83,4 +129,6 @@ export interface DistributionSummary {
   period: string; // e.g. "Oktober 2026"
   hospitalName: string;
   reportConfig?: ReportConfig;
+  approvalInfo?: PeriodApprovalInfo;
+  complianceReport: ComplianceAuditReport;
 }

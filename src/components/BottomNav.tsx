@@ -1,7 +1,7 @@
 import React from 'react';
-import { Calculator, Table2, Users, FileText } from 'lucide-react';
+import { LayoutDashboard, Calculator, Table2, Users, FileText } from 'lucide-react';
 
-export type TabType = 'kalkulator' | 'matriks' | 'penerima' | 'laporan';
+export type TabType = 'dashboard' | 'kalkulator' | 'matriks' | 'penerima' | 'laporan';
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -16,6 +16,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   activeRecipientsCount,
 }) => {
   const tabs = [
+    {
+      id: 'dashboard' as TabType,
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      badge: null,
+    },
     {
       id: 'kalkulator' as TabType,
       label: 'Kalkulator',
@@ -45,9 +51,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <nav 
       aria-label="Navigasi Utama Mobile" 
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg shadow-slate-900/10"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-950/20 transition-colors"
     >
-      <div className="max-w-md mx-auto grid grid-cols-4 items-center h-16 px-2">
+      <div className="max-w-md mx-auto grid grid-cols-5 items-center h-16 px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -56,8 +62,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`flex flex-col items-center justify-center h-full min-h-[44px] min-w-[44px] transition-colors relative ${
-                isActive ? 'text-teal-700' : 'text-slate-500 hover:text-slate-900'
+              className={`flex flex-col items-center justify-center h-full min-h-[44px] min-w-[40px] transition-all relative ${
+                isActive 
+                  ? 'text-teal-600 dark:text-teal-400 font-bold' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
@@ -65,26 +73,22 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               <div className="relative flex items-center justify-center">
                 <Icon
                   className={`w-5 h-5 transition-transform ${
-                    isActive ? 'scale-110 stroke-[2.2]' : 'stroke-[1.8]'
+                    isActive ? 'scale-110 stroke-[2.3]' : 'stroke-[1.8]'
                   }`}
                 />
                 {tab.badge && (
-                  <span className="absolute -top-1.5 -right-3 text-[9px] font-semibold px-1 py-0.2 rounded-full bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
+                  <span className="absolute -top-1.5 -right-3 text-[9px] font-bold px-1 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 tabular-nums">
                     {tab.badge}
                   </span>
                 )}
               </div>
-              <span
-                className={`text-[10px] tracking-tight mt-1 whitespace-nowrap ${
-                  isActive ? 'font-bold text-teal-800' : 'font-medium'
-                }`}
-              >
+              <span className="text-[10px] tracking-tight mt-1 whitespace-nowrap">
                 {tab.label}
               </span>
 
-              {/* Active subtle bar */}
+              {/* Active bar indicator */}
               {isActive && (
-                <span className="absolute bottom-1 w-6 h-0.5 rounded-full bg-teal-600" />
+                <span className="absolute bottom-1 w-6 h-0.5 rounded-full bg-teal-600 dark:bg-teal-400" />
               )}
             </button>
           );

@@ -1,12 +1,31 @@
 import React, { useState } from 'react';
-import { Building2, Calendar, Folder, RotateCcw, Info, Cloud, CloudCheck, RefreshCw } from 'lucide-react';
+import { 
+  Building2, 
+  Calendar, 
+  Folder, 
+  RotateCcw, 
+  Info, 
+  Cloud, 
+  Sun, 
+  Moon, 
+  ShieldCheck, 
+  User, 
+  Crown, 
+  Briefcase 
+} from 'lucide-react';
 import { formatRupiah } from '../utils/jaspelCalculations';
+import { UserProfile } from '../types/jaspel';
+import { ROLE_PERMISSIONS } from '../services/auth';
 
 interface HeaderProps {
   hospitalName: string;
   period: string;
   totalFund: number;
   isSyncing?: boolean;
+  currentUser: UserProfile;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  onOpenAuthRole: () => void;
   onPeriodChange: (newPeriod: string) => void;
   onOpenPeriodFolder: () => void;
   onResetToDefault: () => void;
@@ -17,37 +36,41 @@ export const Header: React.FC<HeaderProps> = ({
   period,
   totalFund,
   isSyncing = false,
-  onPeriodChange,
+  currentUser,
+  isDarkMode,
+  onToggleDarkMode,
+  onOpenAuthRole,
   onOpenPeriodFolder,
   onResetToDefault,
 }) => {
   const [showInfo, setShowInfo] = useState(false);
+  const permissions = ROLE_PERMISSIONS[currentUser.role];
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-slate-900 text-white shadow-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-          {/* Brand Wordmark & Hospital Badge */}
+      <header className="sticky top-0 z-30 bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md text-white shadow-lg border-b border-slate-800 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-3">
+          {/* Brand Wordmark & Hospital Badge - Renamed to MANAJEMEN */}
           <div className="flex items-center gap-2.5 min-w-0 shrink">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center shrink-0 text-teal-400">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 text-white shadow-md shadow-teal-900/30 ring-1 ring-white/20">
               <Building2 className="w-5 h-5" />
             </div>
             <div className="min-w-0 shrink">
               <div className="flex items-center gap-1.5">
-                <h1 className="text-sm sm:text-base md:text-lg font-bold tracking-tight text-white whitespace-nowrap">
-                  SIP-JASMAN
+                <h1 className="text-sm sm:text-base md:text-lg font-black tracking-tight text-white whitespace-nowrap">
+                  MANAJEMEN
                 </h1>
-                <span className="hidden xs:inline-block text-[10px] font-semibold px-1.5 py-0.2 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0">
+                <span className="hidden xs:inline-block text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-teal-500/20 text-teal-300 border border-teal-500/40 shrink-0">
                   RSUD
                 </span>
                 {/* Real-time Cloud Indicator */}
                 <span 
-                  className={`hidden sm:flex items-center gap-1 text-[10px] font-medium px-2 py-0.2 rounded-full border ${
+                  className={`hidden sm:flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                     isSyncing 
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
                       : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                   }`}
-                  title={isSyncing ? 'Sedang menyinkronkan ke cloud...' : 'Tersinkronisasi Real-Time Semua Device'}
+                  title={isSyncing ? 'Sedang sinkronisasi data cloud...' : 'Tersinkronisasi Real-Time Semua Device'}
                 >
                   <Cloud className="w-3 h-3 text-emerald-400" />
                   <span>{isSyncing ? 'Sinkron...' : 'Real-Time'}</span>
@@ -59,42 +82,79 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Quick Actions & Period Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Right Action Hub: Role Selector, Dark Mode Toggle, Period Folder */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* User Profile & Role Switcher */}
+            <button
+              onClick={onOpenAuthRole}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-xs font-semibold transition-all hover:scale-[1.02]"
+              title={`Hak Akses: ${permissions.roleLabel}. Klik untuk ganti peran.`}
+            >
+              {currentUser.role === 'admin' ? (
+                <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              ) : currentUser.role === 'manager' ? (
+                <Briefcase className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              ) : (
+                <User className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              )}
+              <span className="hidden md:inline font-medium text-slate-300 max-w-[110px] truncate">
+                {currentUser.name.split(',')[0]}
+              </span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${permissions.badgeColor}`}>
+                {currentUser.role.toUpperCase()}
+              </span>
+            </button>
+
+            {/* Dark / Light Mode Toggle */}
+            <button
+              onClick={onToggleDarkMode}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors shadow-2xs"
+              title={isDarkMode ? 'Beralih ke Mode Terang' : 'Beralih ke Mode Gelap'}
+              aria-label="Toggle Mode Terang/Gelap"
+            >
+              {isDarkMode ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-300" />
+              )}
+            </button>
+
             {/* Period / Folder trigger */}
             <button
               onClick={onOpenPeriodFolder}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-teal-900/60 hover:bg-teal-800/80 border border-teal-700/60 text-teal-100 text-xs font-medium transition-colors shadow-2xs"
-              title="Buka Folder Arsip Bulan & Tahun"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-teal-900/60 hover:bg-teal-800/80 border border-teal-700/60 text-teal-100 text-xs font-medium transition-colors shadow-2xs"
+              title={`Buka Folder Arsip Bulan & Tahun (${period})`}
               aria-label="Folder Bulan & Tahun"
             >
-              <Folder className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-              <span className="hidden sm:inline text-teal-300">Periode:</span>
-              <span className="font-bold text-white whitespace-nowrap">{period}</span>
+              <Folder className="w-4 h-4 text-teal-400 shrink-0" />
+              <span className="hidden md:inline text-teal-300">Periode:</span>
+              <span className="hidden sm:inline font-bold text-white whitespace-nowrap text-xs">{period}</span>
             </button>
 
-            {/* Reset to CSV baseline button */}
-            <button
-              onClick={() => {
-                if (window.confirm('Kembalikan semua data dan matriks regulasi ke ketetapan awal (CSV Baseline RSUD)?')) {
-                  onResetToDefault();
-                }
-              }}
-              className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
-              title="Reset ke Ketetapan Awal SK"
-              aria-label="Reset ke Default"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+            {/* Reset to CSV baseline button (Desktop/Tablet) */}
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Kembalikan semua data dan matriks regulasi ke ketetapan awal (CSV Baseline RSUD)?')) {
+                    onResetToDefault();
+                  }
+                }}
+                className="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white items-center justify-center transition-colors"
+                title="Reset ke Ketetapan Awal SK"
+                aria-label="Reset ke Default"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
 
-            {/* Info dialog trigger */}
+            {/* Info Trigger */}
             <button
               onClick={() => setShowInfo(true)}
-              className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
-              title="Informasi Regulasi Jasa Manajemen"
+              className="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white items-center justify-center transition-colors"
+              title="Informasi Regulasi & SK Direktur"
               aria-label="Informasi Regulasi"
             >
-              <Info className="w-4 h-4" />
+              <Info className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -102,51 +162,49 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Info Modal */}
       {showInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-teal-50 text-teal-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Tentang Matriks Regulasi</h3>
-                  <p className="text-xs text-slate-500">Sistem Jasa Manajemen RSUD Siwa</p>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Tentang Sistem MANAJEMEN</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">UPT RSUD Siwa - Kabupaten Wajo</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowInfo(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="w-8 h-8 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
+            <div className="space-y-3.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               <p>
-                Aplikasi <strong>SIP-JASMAN</strong> adalah sistem kalkulasi dan tata kelola pembagian jasa manajemen rumah sakit berdasarkan SK Direktur / Peraturan Bupati mengenai proporsi Jasa Pelayanan (Jaspel).
+                Aplikasi <strong>MANAJEMEN</strong> merupakan sistem informasi resmi pengelolaan dan pembagian jasa manajemen rumah sakit berdasarkan SK Direktur RSUD Siwa.
               </p>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                <div className="font-semibold text-slate-800">Prinsip Matriks Regulasi:</div>
-                <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
-                  <li>Total persentase 15 kelompok regulasi harus berjumlah tepat <strong>100,00%</strong>.</li>
-                  <li>Total dana dasar pada SK baseline: <strong>{formatRupiah(totalFund)}</strong>.</li>
-                  <li>Alokasi per kelompok dibagi rata kepada anggota kelompok yang berstatus <strong>Aktif</strong> pada periode berjalan.</li>
-                  <li>Pegawai non-aktif (seperti cuti) otomatis tidak membebani anggaran dan porsinya dinikmati kelompok secara proporsional.</li>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-1">
+                <span className="font-bold text-slate-900 dark:text-white block">Pilar Utama Sistem:</span>
+                <ul className="list-disc list-inside space-y-0.5 text-slate-600 dark:text-slate-400">
+                  <li>Kepatuhan penuh pada 15 kelompok regulasi (100,00%).</li>
+                  <li>Real-time Cloud Sync antarsemua perangkat mobile dan komputer.</li>
+                  <li>Role-Based Access Control (Admin, Manager, dan Pegawai).</li>
+                  <li>Folder arsip per bulan dan tahun dengan audit kepatuhan otomatis.</li>
                 </ul>
               </div>
-              <p>
-                Dilengkapi dengan fitur slip gaji individu resmi, simulasi perubahan anggaran dana, penyesuaian porsi matriks, dan ekspor lampiran laporan tanda terima.
-              </p>
-            </div>
 
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setShowInfo(false)}
-                className="w-full py-2.5 rounded-xl text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-colors"
-              >
-                Mengerti
-              </button>
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={() => setShowInfo(false)}
+                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition-colors"
+                >
+                  Tutup Informasi
+                </button>
+              </div>
             </div>
           </div>
         </div>
