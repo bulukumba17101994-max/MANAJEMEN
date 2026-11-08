@@ -51,7 +51,15 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   const [editPercentageVal, setEditPercentageVal] = useState<string>('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [clickedBtn, setClickedBtn] = useState<string | null>(null);
+  const [btnClickTick, setBtnClickTick] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const triggerBtnAnim = (btnName: string, action: () => void) => {
+    setClickedBtn(btnName);
+    setBtnClickTick((t) => t + 1);
+    action();
+  };
 
   const permissions = ROLE_PERMISSIONS[currentUser.role];
   const { totalPercentage, isValid, delta } = validateMatrixPercentage(groups);
@@ -73,10 +81,6 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   });
 
   const handleStartEdit = (group: RegulationGroup) => {
-    if (!permissions.canEditMatrix) {
-      alert('Peran Anda saat ini (' + currentUser.role + ') hanya memiliki akses baca. Silakan beralih ke peran Admin untuk mengubah persentase regulasi SK.');
-      return;
-    }
     setEditingGroupId(group.id);
     setEditPercentageVal(group.percentage.toString());
   };
@@ -91,10 +95,6 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   };
 
   const handleDeleteGroup = (groupId: string, name: string) => {
-    if (!permissions.canEditMatrix) {
-      alert('Hanya Administrator yang memiliki wewenang menghapus pasal/kelompok regulasi.');
-      return;
-    }
     if (window.confirm(`Hapus aturan kelompok "${name}" dari matriks regulasi SK?`)) {
       const updated = groups.filter((g) => g.id !== groupId);
       onUpdateGroups(updated);
@@ -102,10 +102,6 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
   };
 
   const handleAutoBalance = () => {
-    if (!permissions.canEditMatrix) {
-      alert('Hanya Administrator yang memiliki wewenang menyeimbangkan matriks.');
-      return;
-    }
     if (groups.length === 0) return;
     const currentSum = groups.reduce((acc, g) => acc + g.percentage, 0);
     if (currentSum <= 0) return;
@@ -197,22 +193,32 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
             {/* Upload Matrix Requirements Button */}
             {permissions.canUploadMatrix && (
               <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                onClick={() => triggerBtnAnim('upload', () => fileInputRef.current?.click())}
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs group select-none"
                 title="Unggah berkas aturan regulasi (JSON atau CSV)"
               >
-                <Upload className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <div 
+                  key={clickedBtn === 'upload' ? `upload-${btnClickTick}` : undefined}
+                  className={clickedBtn === 'upload' ? 'animate-icon-pop' : 'transition-transform group-hover:-translate-y-0.5'}
+                >
+                  <Upload className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                </div>
                 <span>Unggah Matriks</span>
               </button>
             )}
 
             {/* Download Matrix Template */}
             <button
-              onClick={handleDownloadTemplate}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+              onClick={() => triggerBtnAnim('download', handleDownloadTemplate)}
+              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs group select-none"
               title="Unduh templat aturan regulasi JSON untuk arsip atau editing offline"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <div 
+                key={clickedBtn === 'download' ? `download-${btnClickTick}` : undefined}
+                className={clickedBtn === 'download' ? 'animate-icon-pop' : 'transition-transform group-hover:translate-y-0.5'}
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              </div>
               <span>Unduh Templat</span>
             </button>
 
@@ -220,14 +226,21 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
             {permissions.canEditMatrix && (
               <button
                 onClick={() => {
-                  if (window.confirm('Kembalikan matriks regulasi ke ketetapan awal SK Direktur (15 Kelompok)?')) {
-                    onResetGroups();
-                  }
+                  triggerBtnAnim('reset', () => {
+                    if (window.confirm('Kembalikan matriks regulasi ke ketetapan awal SK Direktur (15 Kelompok)?')) {
+                      onResetGroups();
+                    }
+                  });
                 }}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs group select-none"
                 title="Reset ke persentase default SK"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <div 
+                  key={clickedBtn === 'reset' ? `reset-${btnClickTick}` : undefined}
+                  className={clickedBtn === 'reset' ? 'animate-icon-spin' : 'transition-transform group-hover:-rotate-90'}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </div>
                 <span>Reset SK</span>
               </button>
             )}
@@ -235,10 +248,15 @@ export const MatrixRegulationTab: React.FC<MatrixRegulationTabProps> = ({
             {/* Add Rule Button */}
             {permissions.canEditMatrix && (
               <button
-                onClick={onAddGroupModal}
-                className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                onClick={() => triggerBtnAnim('add', onAddGroupModal)}
+                className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm group select-none"
               >
-                <Plus className="w-4 h-4" />
+                <div 
+                  key={clickedBtn === 'add' ? `add-${btnClickTick}` : undefined}
+                  className={clickedBtn === 'add' ? 'animate-icon-pop' : 'transition-transform group-hover:rotate-90'}
+                >
+                  <Plus className="w-4 h-4" />
+                </div>
                 <span>Tambah Aturan</span>
               </button>
             )}

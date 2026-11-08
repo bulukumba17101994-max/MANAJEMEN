@@ -25,7 +25,6 @@ import { AddRecipientModal } from './components/AddRecipientModal';
 import { EditRecipientModal } from './components/EditRecipientModal';
 import { AddGroupModal } from './components/AddGroupModal';
 import { PeriodFolderModal } from './components/PeriodFolderModal';
-import { AuthRoleModal } from './components/AuthRoleModal';
 
 import { 
   DEFAULT_TOTAL_FUND, 
@@ -55,7 +54,7 @@ import {
   seedInitialPeriodIfEmpty,
   testFirestoreConnection,
 } from './services/firebase';
-import { PRESET_USERS, ROLE_PERMISSIONS } from './services/auth';
+import { DEFAULT_ADMIN_USER } from './services/auth';
 
 export default function App() {
   // Theme state: Dark Mode / Light Mode
@@ -75,16 +74,8 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // User & RBAC state
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
-    const savedRole = localStorage.getItem('manajemen_active_role') as UserRole;
-    if (savedRole && PRESET_USERS[savedRole]) {
-      return PRESET_USERS[savedRole];
-    }
-    return PRESET_USERS.admin; // Default admin
-  });
-
-  const [isAuthRoleOpen, setIsAuthRoleOpen] = useState(false);
+  // Administrator User state (Full Access to modify everything)
+  const [currentUser] = useState<UserProfile>(DEFAULT_ADMIN_USER);
 
   // Application State with LocalStorage persistence and Firebase Real-Time Cloud Sync
   const [totalFund, setTotalFund] = useState<number>(() => {
@@ -169,12 +160,20 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [clickedDesktopTab, setClickedDesktopTab] = useState<TabType | null>(null);
+  const [desktopClickCount, setDesktopClickCount] = useState<number>(0);
   const [activeSlipRecipient, setActiveSlipRecipient] = useState<CalculatedRecipient | null>(null);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
   const [isAddRecipientOpen, setIsAddRecipientOpen] = useState(false);
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
   const [isPeriodFolderOpen, setIsPeriodFolderOpen] = useState(false);
   const [groupFilterFromCalculator, setGroupFilterFromCalculator] = useState<string | null>(null);
+
+  const handleSelectDesktopTab = (tab: TabType) => {
+    setClickedDesktopTab(tab);
+    setDesktopClickCount((c) => c + 1);
+    setActiveTab(tab);
+  };
 
   // Real-time Cloud Sync Subscription across all devices
   useEffect(() => {
@@ -431,11 +430,6 @@ export default function App() {
     setApprovalInfo(updated);
   };
 
-  const handleSelectRole = (newRole: UserRole) => {
-    setCurrentUser(PRESET_USERS[newRole]);
-    localStorage.setItem('manajemen_active_role', newRole);
-  };
-
   return (
     <div className="min-h-screen bg-slate-100/80 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-teal-500 selection:text-white transition-colors duration-200">
       {/* Top Header */}
@@ -447,7 +441,6 @@ export default function App() {
         currentUser={currentUser}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
-        onOpenAuthRole={() => setIsAuthRoleOpen(true)}
         onPeriodChange={setPeriod}
         onOpenPeriodFolder={() => setIsPeriodFolderOpen(true)}
         onResetToDefault={handleResetToDefault}
@@ -456,70 +449,164 @@ export default function App() {
       {/* Desktop Navigation Tabs (Hidden on mobile) */}
       <div className="hidden md:block bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <nav className="flex space-x-7" aria-label="Tabs Desktop">
+          <nav className="flex space-x-6" aria-label="Tabs Desktop">
+            {/* Dashboard Analitik */}
             <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`py-3.5 px-1 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              onClick={() => handleSelectDesktopTab('dashboard')}
+              className={`py-3.5 px-2 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 group relative active:scale-95 select-none ${
                 activeTab === 'dashboard'
                   ? 'border-teal-600 dark:border-teal-400 text-teal-700 dark:text-teal-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4" />
+              {clickedDesktopTab === 'dashboard' && (
+                <span
+                  key={`dash-${desktopClickCount}`}
+                  className="absolute inset-0 rounded-lg bg-teal-500/15 animate-ripple pointer-events-none"
+                />
+              )}
+              <div
+                key={clickedDesktopTab === 'dashboard' ? `dash-icon-${desktopClickCount}` : undefined}
+                className={`p-1 rounded-lg transition-all ${
+                  clickedDesktopTab === 'dashboard'
+                    ? 'animate-icon-pop bg-teal-500/15 text-teal-600 dark:text-teal-300'
+                    : activeTab === 'dashboard'
+                    ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 animate-tab-float'
+                    : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800 group-hover:scale-110'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+              </div>
               <span>Dashboard Analitik</span>
             </button>
 
+            {/* Kalkulator Jasa */}
             <button
-              onClick={() => setActiveTab('kalkulator')}
-              className={`py-3.5 px-1 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              onClick={() => handleSelectDesktopTab('kalkulator')}
+              className={`py-3.5 px-2 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 group relative active:scale-95 select-none ${
                 activeTab === 'kalkulator'
                   ? 'border-teal-600 dark:border-teal-400 text-teal-700 dark:text-teal-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <Calculator className="w-4 h-4" />
+              {clickedDesktopTab === 'kalkulator' && (
+                <span
+                  key={`calc-${desktopClickCount}`}
+                  className="absolute inset-0 rounded-lg bg-teal-500/15 animate-ripple pointer-events-none"
+                />
+              )}
+              <div
+                key={clickedDesktopTab === 'kalkulator' ? `calc-icon-${desktopClickCount}` : undefined}
+                className={`p-1 rounded-lg transition-all ${
+                  clickedDesktopTab === 'kalkulator'
+                    ? 'animate-icon-wiggle bg-teal-500/15 text-teal-600 dark:text-teal-300'
+                    : activeTab === 'kalkulator'
+                    ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 animate-tab-float'
+                    : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800 group-hover:scale-110'
+                }`}
+              >
+                <Calculator className="w-4 h-4" />
+              </div>
               <span>Kalkulator Jasa</span>
             </button>
 
+            {/* Matriks Regulasi SK */}
             <button
-              onClick={() => setActiveTab('matriks')}
-              className={`py-3.5 px-1 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              onClick={() => handleSelectDesktopTab('matriks')}
+              className={`py-3.5 px-2 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 group relative active:scale-95 select-none ${
                 activeTab === 'matriks'
                   ? 'border-teal-600 dark:border-teal-400 text-teal-700 dark:text-teal-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <Table2 className="w-4 h-4" />
+              {clickedDesktopTab === 'matriks' && (
+                <span
+                  key={`matriks-${desktopClickCount}`}
+                  className="absolute inset-0 rounded-lg bg-teal-500/15 animate-ripple pointer-events-none"
+                />
+              )}
+              <div
+                key={clickedDesktopTab === 'matriks' ? `matriks-icon-${desktopClickCount}` : undefined}
+                className={`p-1 rounded-lg transition-all ${
+                  clickedDesktopTab === 'matriks'
+                    ? 'animate-icon-spin bg-teal-500/15 text-teal-600 dark:text-teal-300'
+                    : activeTab === 'matriks'
+                    ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 animate-tab-float'
+                    : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800 group-hover:scale-110'
+                }`}
+              >
+                <Table2 className="w-4 h-4" />
+              </div>
               <span>Matriks Regulasi SK</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-bold">
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full border font-bold transition-transform ${
+                clickedDesktopTab === 'matriks' ? 'scale-110' : ''
+              } bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700`}>
                 100%
               </span>
             </button>
 
+            {/* Daftar Penerima */}
             <button
-              onClick={() => setActiveTab('penerima')}
-              className={`py-3.5 px-1 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              onClick={() => handleSelectDesktopTab('penerima')}
+              className={`py-3.5 px-2 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 group relative active:scale-95 select-none ${
                 activeTab === 'penerima'
                   ? 'border-teal-600 dark:border-teal-400 text-teal-700 dark:text-teal-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <Users className="w-4 h-4" />
+              {clickedDesktopTab === 'penerima' && (
+                <span
+                  key={`penerima-${desktopClickCount}`}
+                  className="absolute inset-0 rounded-lg bg-teal-500/15 animate-ripple pointer-events-none"
+                />
+              )}
+              <div
+                key={clickedDesktopTab === 'penerima' ? `penerima-icon-${desktopClickCount}` : undefined}
+                className={`p-1 rounded-lg transition-all ${
+                  clickedDesktopTab === 'penerima'
+                    ? 'animate-icon-pop bg-teal-500/15 text-teal-600 dark:text-teal-300'
+                    : activeTab === 'penerima'
+                    ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 animate-tab-float'
+                    : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800 group-hover:scale-110'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+              </div>
               <span>Daftar Penerima</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold">
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full border font-bold transition-transform ${
+                clickedDesktopTab === 'penerima' ? 'scale-110' : ''
+              } bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800`}>
                 {summary.activeRecipients} Orang
               </span>
             </button>
 
+            {/* Laporan & Berita Acara */}
             <button
-              onClick={() => setActiveTab('laporan')}
-              className={`py-3.5 px-1 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              onClick={() => handleSelectDesktopTab('laporan')}
+              className={`py-3.5 px-2 border-b-2 text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 group relative active:scale-95 select-none ${
                 activeTab === 'laporan'
                   ? 'border-teal-600 dark:border-teal-400 text-teal-700 dark:text-teal-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <FileText className="w-4 h-4" />
+              {clickedDesktopTab === 'laporan' && (
+                <span
+                  key={`laporan-${desktopClickCount}`}
+                  className="absolute inset-0 rounded-lg bg-teal-500/15 animate-ripple pointer-events-none"
+                />
+              )}
+              <div
+                key={clickedDesktopTab === 'laporan' ? `laporan-icon-${desktopClickCount}` : undefined}
+                className={`p-1 rounded-lg transition-all ${
+                  clickedDesktopTab === 'laporan'
+                    ? 'animate-icon-wiggle bg-teal-500/15 text-teal-600 dark:text-teal-300'
+                    : activeTab === 'laporan'
+                    ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 animate-tab-float'
+                    : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800 group-hover:scale-110'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+              </div>
               <span>Laporan &amp; Berita Acara</span>
             </button>
           </nav>
@@ -640,14 +727,6 @@ export default function App() {
         onSaveCurrentPeriod={handleSaveCurrentPeriod}
         onCreateNewPeriod={handleCreateNewPeriod}
         onDeletePeriod={handleDeletePeriod}
-      />
-
-      {/* User Role / Auth Modal */}
-      <AuthRoleModal
-        isOpen={isAuthRoleOpen}
-        currentUser={currentUser}
-        onClose={() => setIsAuthRoleOpen(false)}
-        onSelectRole={handleSelectRole}
       />
     </div>
   );

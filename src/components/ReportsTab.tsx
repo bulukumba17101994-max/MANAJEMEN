@@ -33,9 +33,17 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [isEditSignatoriesOpen, setIsEditSignatoriesOpen] = useState(false);
+  const [clickedAction, setClickedAction] = useState<string | null>(null);
+  const [actionTick, setActionTick] = useState<number>(0);
 
   const permissions = ROLE_PERMISSIONS[currentUser.role];
   const activeConfig = reportConfig || DEFAULT_REPORT_CONFIG;
+
+  const triggerAnim = (actionName: string, fn?: () => void) => {
+    setClickedAction(actionName);
+    setActionTick((t) => t + 1);
+    if (fn) fn();
+  };
 
   const handleToggleSignatureColumn = () => {
     if (onUpdateReportConfig) {
@@ -112,35 +120,47 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handleCopySummary}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+              onClick={() => triggerAnim('copy', handleCopySummary)}
+              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs group select-none"
             >
-              {copied ? (
-                <>
+              <div 
+                key={clickedAction === 'copy' ? `copy-${actionTick}` : undefined}
+                className={clickedAction === 'copy' ? 'animate-icon-pop' : 'transition-transform group-hover:scale-110'}
+              >
+                {copied ? (
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">Tersalin!</span>
-                </>
-              ) : (
-                <>
+                ) : (
                   <Copy className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Salin Teks</span>
-                </>
-              )}
+                )}
+              </div>
+              <span className={copied ? "text-emerald-700 dark:text-emerald-400 font-bold" : ""}>
+                {copied ? "Tersalin!" : "Salin Teks"}
+              </span>
             </button>
 
             <button
-              onClick={handleDownloadCSV}
-              className="px-3 py-2 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 text-teal-800 dark:text-teal-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+              onClick={() => triggerAnim('csv', handleDownloadCSV)}
+              className="px-3 py-2 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 active:scale-95 text-teal-800 dark:text-teal-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs group select-none"
             >
-              <Download className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <div 
+                key={clickedAction === 'csv' ? `csv-${actionTick}` : undefined}
+                className={clickedAction === 'csv' ? 'animate-icon-pop' : 'transition-transform group-hover:translate-y-0.5'}
+              >
+                <Download className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              </div>
               <span>Unduh CSV</span>
             </button>
 
             <button
-              onClick={handlePrint}
-              className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+              onClick={() => triggerAnim('print', handlePrint)}
+              className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 active:scale-95 text-white dark:text-slate-900 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm group select-none"
             >
-              <Printer className="w-4 h-4" />
+              <div 
+                key={clickedAction === 'print' ? `print-${actionTick}` : undefined}
+                className={clickedAction === 'print' ? 'animate-icon-pop' : 'transition-transform group-hover:-translate-y-0.5'}
+              >
+                <Printer className="w-4 h-4" />
+              </div>
               <span>Cetak Laporan</span>
             </button>
           </div>
@@ -151,56 +171,61 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             {/* Toggle Tanda Tangan di Tabel */}
             <button
-              onClick={handleToggleSignatureColumn}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              onClick={() => triggerAnim('sign-toggle', handleToggleSignatureColumn)}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all select-none group ${
                 activeConfig.showSignatureColumn
                   ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-300 dark:border-teal-800 text-teal-800 dark:text-teal-300'
                   : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
               }`}
             >
-              {activeConfig.showSignatureColumn ? (
-                <>
+              <div 
+                key={clickedAction === 'sign-toggle' ? `sig-${actionTick}` : undefined}
+                className={clickedAction === 'sign-toggle' ? 'animate-icon-wiggle' : 'transition-transform group-hover:scale-110'}
+              >
+                {activeConfig.showSignatureColumn ? (
                   <Eye className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Kolom Tanda Tangan: Tampil</span>
-                </>
-              ) : (
-                <>
+                ) : (
                   <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Tanpa Kolom Tanda Tangan</span>
-                </>
-              )}
+                )}
+              </div>
+              <span>{activeConfig.showSignatureColumn ? 'Kolom Tanda Tangan: Tampil' : 'Tanpa Kolom Tanda Tangan'}</span>
             </button>
 
             {/* Toggle Lembar Pengesahan */}
             <button
-              onClick={handleToggleApprovalBlock}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              onClick={() => triggerAnim('approval-toggle', handleToggleApprovalBlock)}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all select-none group ${
                 activeConfig.showApprovalBlock
                   ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-300 dark:border-teal-800 text-teal-800 dark:text-teal-300'
                   : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
               }`}
             >
-              {activeConfig.showApprovalBlock ? (
-                <>
+              <div 
+                key={clickedAction === 'approval-toggle' ? `appr-${actionTick}` : undefined}
+                className={clickedAction === 'approval-toggle' ? 'animate-icon-pop' : 'transition-transform group-hover:scale-110'}
+              >
+                {activeConfig.showApprovalBlock ? (
                   <Check className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Lembar Pengesahan: Tampil</span>
-                </>
-              ) : (
-                <>
+                ) : (
                   <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Tanpa Lembar Pengesahan</span>
-                </>
-              )}
+                )}
+              </div>
+              <span>{activeConfig.showApprovalBlock ? 'Lembar Pengesahan: Tampil' : 'Tanpa Lembar Pengesahan'}</span>
             </button>
           </div>
 
           {/* Edit Signatories Modal Trigger */}
           {permissions.canEditSignatories && (
             <button
-              onClick={() => setIsEditSignatoriesOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+              onClick={() => triggerAnim('edit-sign', () => setIsEditSignatoriesOpen(true))}
+              className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 text-slate-800 dark:text-slate-200 font-bold flex items-center gap-1.5 transition-all shadow-2xs group select-none"
             >
-              <FileSignature className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <div 
+                key={clickedAction === 'edit-sign' ? `edit-sign-${actionTick}` : undefined}
+                className={clickedAction === 'edit-sign' ? 'animate-icon-wiggle' : 'transition-transform group-hover:rotate-12'}
+              >
+                <FileSignature className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              </div>
               <span>Edit Pejabat Pengesahan</span>
             </button>
           )}

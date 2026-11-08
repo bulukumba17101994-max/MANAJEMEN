@@ -71,18 +71,10 @@ export const RecipientsTab: React.FC<RecipientsTabProps> = ({
   });
 
   const handleToggleClick = (rec: CalculatedRecipient) => {
-    if (!permissions.canChangeAttendance) {
-      alert('Peran Anda (' + currentUser.role + ') hanya memiliki akses baca. Silakan beralih ke peran Manager atau Admin untuk mengubah status kehadiran.');
-      return;
-    }
     onToggleActive(rec.id);
   };
 
   const handleEditClick = (rec: CalculatedRecipient) => {
-    if (!permissions.canEditEmployees) {
-      alert('Peran Anda (' + currentUser.role + ') hanya memiliki akses baca. Silakan beralih ke peran Manager atau Admin untuk mengedit data pegawai.');
-      return;
-    }
     onEditRecipient(rec);
   };
 
@@ -110,9 +102,9 @@ export const RecipientsTab: React.FC<RecipientsTabProps> = ({
           {permissions.canEditEmployees && (
             <button
               onClick={onOpenAddModal}
-              className="px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm hover:scale-[1.01] self-start sm:self-auto"
+              className="px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm group select-none self-start sm:self-auto"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 transition-transform group-hover:rotate-90 group-active:scale-90" />
               <span>Tambah Pegawai</span>
             </button>
           )}
@@ -230,11 +222,12 @@ export const RecipientsTab: React.FC<RecipientsTabProps> = ({
                       </div>
                     </div>
 
-                    {/* Toggle Active Button */}
+                    {/* Action buttons */}
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Toggle Active Button */}
                       <button
                         onClick={() => handleToggleClick(rec)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border active:scale-95 transition-all select-none group ${
                           rec.isActive
                             ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100'
                             : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200'
@@ -249,12 +242,12 @@ export const RecipientsTab: React.FC<RecipientsTabProps> = ({
                       >
                         {rec.isActive ? (
                           <>
-                            <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-600 transition-transform group-hover:scale-110" />
                             <span>Aktif</span>
                           </>
                         ) : (
                           <>
-                            <UserX className="w-3.5 h-3.5 text-slate-400" />
+                            <UserX className="w-3.5 h-3.5 text-slate-400 transition-transform group-hover:scale-110" />
                             <span>Cuti</span>
                           </>
                         )}
@@ -263,7 +256,7 @@ export const RecipientsTab: React.FC<RecipientsTabProps> = ({
                       {/* Edit Pegawai Action */}
                       <button
                         onClick={() => handleEditClick(rec)}
-                        className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-teal-700 flex items-center justify-center transition-colors shadow-2xs"
+                        className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 text-slate-600 dark:text-slate-300 hover:text-teal-700 flex items-center justify-center transition-all shadow-2xs group"
                         title={
                           !permissions.canEditEmployees
                             ? 'Akses terbatas (Hanya Admin / Manager)'
@@ -271,14 +264,14 @@ export const RecipientsTab: React.FC<RecipientsTabProps> = ({
                         }
                         aria-label="Edit Pegawai"
                       >
-                        <Edit3 className="w-4 h-4" />
+                        <Edit3 className="w-4 h-4 transition-transform group-hover:rotate-12 group-hover:scale-110" />
                       </button>
 
                       {/* Slip Action */}
                       <button
                         onClick={() => onOpenSlip(rec)}
                         disabled={!rec.isActive}
-                        className={`p-2 rounded-xl border flex items-center justify-center transition-colors ${
+                        className={`p-2 rounded-xl border flex items-center justify-center active:scale-90 transition-all group ${
                           rec.isActive
                             ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 border-slate-900 dark:border-white shadow-2xs'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed'
@@ -286,7 +279,7 @@ export const RecipientsTab: React.FC<RecipientsTabProps> = ({
                         title="Buka Slip Pembagian Jasa"
                         aria-label="Buka Slip"
                       >
-                        <Receipt className="w-4 h-4" />
+                        <Receipt className="w-4 h-4 transition-transform group-hover:scale-115 group-active:scale-90" />
                       </button>
                     </div>
                   </div>

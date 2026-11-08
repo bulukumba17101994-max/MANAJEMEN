@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   TrendingUp, 
   Wallet, 
@@ -11,12 +11,12 @@ import {
   ArrowUpRight, 
   Users, 
   Layers, 
-  Send, 
   Lock, 
   CheckCheck,
   ChevronRight,
   Sparkles,
-  PieChart
+  PieChart,
+  Calculator
 } from 'lucide-react';
 import { DistributionSummary, UserProfile, PeriodApprovalStatus } from '../types/jaspel';
 import { formatRupiah, formatPercentage } from '../utils/jaspelCalculations';
@@ -39,6 +39,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 }) => {
   const permissions = ROLE_PERMISSIONS[currentUser.role];
   const { totalFund, totalAllocated, difference, complianceReport, approvalInfo } = summary;
+
+  const [clickedAction, setClickedAction] = useState<string | null>(null);
+  const [actionClickTick, setActionClickTick] = useState<number>(0);
+
+  const handleActionClick = (key: string, tab: any) => {
+    setClickedAction(key);
+    setActionClickTick((t) => t + 1);
+    onNavigateToTab(tab);
+  };
 
   // Category Tier aggregation
   const tierSummary = summary.groupAllocations.reduce((acc, curr) => {
@@ -129,47 +138,55 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               {statusInfo[currentStatus].desc}
             </p>
 
-            {/* Role-based approval buttons */}
-            <div className="pt-1 flex gap-2">
+            {/* Admin approval & lock controls */}
+            <div className="pt-1 flex flex-col sm:flex-row gap-2">
               {currentStatus === 'draft' && (
                 <button
-                  onClick={() => onUpdateApprovalStatus('pending_approval')}
-                  disabled={!permissions.canSubmitPeriod}
-                  className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                    permissions.canSubmitPeriod
-                      ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md hover:scale-[1.01]'
-                      : 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
-                  }`}
-                  title={!permissions.canSubmitPeriod ? 'Hanya Manager atau Admin yang dapat mengajukan' : 'Ajukan persetujuan ke Direktur'}
+                  onClick={() => onUpdateApprovalStatus('approved')}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md hover:scale-[1.01] transition-all"
+                  title="Langsung sahkan dan kunci pembagian jasa manajemen"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Ajukan ke Direktur</span>
+                  <CheckCheck className="w-4 h-4" />
+                  <span>Setujui &amp; Kunci SK</span>
                 </button>
               )}
 
               {currentStatus === 'pending_approval' && (
-                <>
-                  {permissions.canApprovePeriod ? (
-                    <button
-                      onClick={() => onUpdateApprovalStatus('approved')}
-                      className="w-full py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md hover:scale-[1.01] transition-all"
-                    >
-                      <CheckCheck className="w-4 h-4" />
-                      <span>Setujui &amp; Kunci SK</span>
-                    </button>
-                  ) : (
-                    <div className="w-full text-center py-1.5 px-3 rounded-xl bg-slate-700/60 text-amber-300 text-[11px] font-medium flex items-center justify-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Menunggu Tanda Tangan Direktur</span>
-                    </div>
-                  )}
-                </>
+                <div className="w-full flex gap-2">
+                  <button
+                    onClick={() => onUpdateApprovalStatus('approved')}
+                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md hover:scale-[1.01] transition-all"
+                  >
+                    <CheckCheck className="w-4 h-4" />
+                    <span>Setujui &amp; Kunci SK</span>
+                  </button>
+                  <button
+                    onClick={() => onUpdateApprovalStatus('draft')}
+                    className="py-2 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold"
+                    title="Kembalikan ke status draft"
+                  >
+                    Draft
+                  </button>
+                </div>
               )}
 
               {currentStatus === 'approved' && (
-                <div className="w-full py-2 px-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Terkunci &amp; Sah Sesuai SK</span>
+                <div className="w-full flex items-center justify-between gap-2 p-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
+                  <div className="flex items-center gap-1.5 text-emerald-300 text-xs font-bold px-2 py-0.5">
+                    <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Terkunci &amp; Sah</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Buka kunci periode ini untuk mengedit data kembali?')) {
+                        onUpdateApprovalStatus('draft');
+                      }
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 text-[11px] font-bold border border-slate-700 transition-colors shadow-2xs"
+                    title="Buka kunci sebagai Administrator untuk mengubah data"
+                  >
+                    Buka Kunci (Edit)
+                  </button>
                 </div>
               )}
             </div>
@@ -377,11 +394,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </p>
             </div>
             <button
-              onClick={() => onNavigateToTab('kalkulator')}
-              className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
+              onClick={() => handleActionClick('kalkulator', 'kalkulator')}
+              className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 flex items-center gap-1.5 active:scale-95 transition-all group select-none"
             >
+              <Calculator className={`w-3.5 h-3.5 transition-transform ${clickedAction === 'kalkulator' ? 'animate-icon-wiggle' : 'group-hover:scale-110'}`} />
               <span>Kalkulator</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </button>
           </div>
 
@@ -434,12 +452,24 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </h3>
 
             <div className="grid grid-cols-1 gap-2 pt-1">
+              {/* Shortcut Matriks */}
               <button
-                onClick={() => onNavigateToTab('matriks')}
-                className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-between group text-left"
+                onClick={() => handleActionClick('matriks', 'matriks')}
+                className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-between group text-left active:scale-95 relative overflow-hidden select-none"
               >
+                {clickedAction === 'matriks' && (
+                  <span
+                    key={`matriks-act-${actionClickTick}`}
+                    className="absolute inset-0 rounded-2xl bg-teal-400/20 animate-ripple pointer-events-none"
+                  />
+                )}
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs">
+                  <div 
+                    key={clickedAction === 'matriks' ? `m-icon-${actionClickTick}` : undefined}
+                    className={`w-9 h-9 rounded-xl bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs transition-all ${
+                      clickedAction === 'matriks' ? 'animate-icon-spin' : 'group-hover:scale-110'
+                    }`}
+                  >
                     100%
                   </div>
                   <div>
@@ -451,15 +481,27 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-1 transition-all" />
               </button>
 
+              {/* Shortcut Penerima */}
               <button
-                onClick={() => onNavigateToTab('penerima')}
-                className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-between group text-left"
+                onClick={() => handleActionClick('penerima', 'penerima')}
+                className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-between group text-left active:scale-95 relative overflow-hidden select-none"
               >
+                {clickedAction === 'penerima' && (
+                  <span
+                    key={`penerima-act-${actionClickTick}`}
+                    className="absolute inset-0 rounded-2xl bg-sky-400/20 animate-ripple pointer-events-none"
+                  />
+                )}
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                  <div 
+                    key={clickedAction === 'penerima' ? `p-icon-${actionClickTick}` : undefined}
+                    className={`w-9 h-9 rounded-xl bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center transition-all ${
+                      clickedAction === 'penerima' ? 'animate-icon-pop' : 'group-hover:scale-110'
+                    }`}
+                  >
                     <Users className="w-4 h-4" />
                   </div>
                   <div>
@@ -471,15 +513,27 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-1 transition-all" />
               </button>
 
+              {/* Shortcut Laporan */}
               <button
-                onClick={() => onNavigateToTab('laporan')}
-                className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-between group text-left"
+                onClick={() => handleActionClick('laporan', 'laporan')}
+                className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-between group text-left active:scale-95 relative overflow-hidden select-none"
               >
+                {clickedAction === 'laporan' && (
+                  <span
+                    key={`laporan-act-${actionClickTick}`}
+                    className="absolute inset-0 rounded-2xl bg-amber-400/20 animate-ripple pointer-events-none"
+                  />
+                )}
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <div 
+                    key={clickedAction === 'laporan' ? `l-icon-${actionClickTick}` : undefined}
+                    className={`w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center transition-all ${
+                      clickedAction === 'laporan' ? 'animate-icon-wiggle' : 'group-hover:scale-110'
+                    }`}
+                  >
                     <FileText className="w-4 h-4" />
                   </div>
                   <div>
@@ -491,7 +545,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-1 transition-all" />
               </button>
             </div>
           </div>

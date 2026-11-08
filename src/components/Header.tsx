@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Building2, 
-  Calendar, 
   Folder, 
   RotateCcw, 
   Info, 
@@ -9,13 +8,9 @@ import {
   Sun, 
   Moon, 
   ShieldCheck, 
-  User, 
-  Crown, 
-  Briefcase 
+  Crown 
 } from 'lucide-react';
-import { formatRupiah } from '../utils/jaspelCalculations';
 import { UserProfile } from '../types/jaspel';
-import { ROLE_PERMISSIONS } from '../services/auth';
 
 interface HeaderProps {
   hospitalName: string;
@@ -25,7 +20,6 @@ interface HeaderProps {
   currentUser: UserProfile;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
-  onOpenAuthRole: () => void;
   onPeriodChange: (newPeriod: string) => void;
   onOpenPeriodFolder: () => void;
   onResetToDefault: () => void;
@@ -39,21 +33,34 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   isDarkMode,
   onToggleDarkMode,
-  onOpenAuthRole,
   onOpenPeriodFolder,
   onResetToDefault,
 }) => {
   const [showInfo, setShowInfo] = useState(false);
-  const permissions = ROLE_PERMISSIONS[currentUser.role];
+  const [clickedIcon, setClickedIcon] = useState<string | null>(null);
+  const [iconClickTick, setIconClickTick] = useState<number>(0);
+
+  const triggerIconAnim = (name: string, callback?: () => void) => {
+    setClickedIcon(name);
+    setIconClickTick((t) => t + 1);
+    if (callback) callback();
+  };
 
   return (
     <>
       <header className="sticky top-0 z-30 bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md text-white shadow-lg border-b border-slate-800 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-3">
           {/* Brand Wordmark & Hospital Badge - Renamed to MANAJEMEN */}
-          <div className="flex items-center gap-2.5 min-w-0 shrink">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 text-white shadow-md shadow-teal-900/30 ring-1 ring-white/20">
-              <Building2 className="w-5 h-5" />
+          <div 
+            onClick={() => triggerIconAnim('brand')}
+            className="flex items-center gap-2.5 min-w-0 shrink cursor-pointer group select-none"
+            title="Sistem Pembagian Jasa Manajemen RSUD Siwa"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 text-white shadow-md shadow-teal-900/30 ring-1 ring-white/20 transition-all duration-300 group-hover:scale-105 group-active:scale-95">
+              <Building2 
+                key={clickedIcon === 'brand' ? `brand-${iconClickTick}` : undefined}
+                className={`w-5 h-5 transition-transform ${clickedIcon === 'brand' ? 'animate-icon-pop' : 'group-hover:rotate-6'}`} 
+              />
             </div>
             <div className="min-w-0 shrink">
               <div className="flex items-center gap-1.5">
@@ -82,51 +89,61 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Right Action Hub: Role Selector, Dark Mode Toggle, Period Folder */}
+          {/* Right Action Hub: Administrator Profile Badge, Dark Mode Toggle, Period Folder */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* User Profile & Role Switcher */}
-            <button
-              onClick={onOpenAuthRole}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-xs font-semibold transition-all hover:scale-[1.02]"
-              title={`Hak Akses: ${permissions.roleLabel}. Klik untuk ganti peran.`}
+            {/* Administrator Profile Badge (Full Access) */}
+            <div
+              onClick={() => triggerIconAnim('admin_badge')}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700/80 text-slate-200 text-xs font-semibold select-none group cursor-pointer hover:border-amber-500/40 transition-all active:scale-95 shadow-2xs"
+              title="Administrator: Hak Akses Penuh Mengubah Semua Data, Matriks Regulasi, Pegawai, dan Pengesahan"
             >
-              {currentUser.role === 'admin' ? (
+              <div 
+                key={clickedIcon === 'admin_badge' ? `admin-${iconClickTick}` : undefined}
+                className={clickedIcon === 'admin_badge' ? 'animate-icon-pop' : 'transition-transform group-hover:scale-110'}
+              >
                 <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              ) : currentUser.role === 'manager' ? (
-                <Briefcase className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              ) : (
-                <User className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              )}
-              <span className="hidden md:inline font-medium text-slate-300 max-w-[110px] truncate">
+              </div>
+              <span className="hidden md:inline font-medium text-slate-300 max-w-[120px] truncate">
                 {currentUser.name.split(',')[0]}
               </span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${permissions.badgeColor}`}>
-                {currentUser.role.toUpperCase()}
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                <ShieldCheck className="w-2.5 h-2.5 text-amber-400 hidden xs:inline" />
+                <span>ADMIN</span>
               </span>
-            </button>
+            </div>
 
             {/* Dark / Light Mode Toggle */}
             <button
-              onClick={onToggleDarkMode}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors shadow-2xs"
+              onClick={() => triggerIconAnim('theme', onToggleDarkMode)}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-90 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-2xs group"
               title={isDarkMode ? 'Beralih ke Mode Terang' : 'Beralih ke Mode Gelap'}
               aria-label="Toggle Mode Terang/Gelap"
             >
-              {isDarkMode ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-300" />
-              )}
+              <div 
+                key={clickedIcon === 'theme' ? `theme-${iconClickTick}` : undefined}
+                className={clickedIcon === 'theme' ? 'animate-icon-spin' : 'transition-transform group-hover:rotate-45'}
+              >
+                {isDarkMode ? (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Moon className="w-4 h-4 text-slate-300" />
+                )}
+              </div>
             </button>
 
             {/* Period / Folder trigger */}
             <button
-              onClick={onOpenPeriodFolder}
-              className="flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-teal-900/60 hover:bg-teal-800/80 border border-teal-700/60 text-teal-100 text-xs font-medium transition-colors shadow-2xs"
+              onClick={() => triggerIconAnim('folder', onOpenPeriodFolder)}
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-teal-900/60 hover:bg-teal-800/80 active:scale-95 border border-teal-700/60 text-teal-100 text-xs font-medium transition-all shadow-2xs group"
               title={`Buka Folder Arsip Bulan & Tahun (${period})`}
               aria-label="Folder Bulan & Tahun"
             >
-              <Folder className="w-4 h-4 text-teal-400 shrink-0" />
+              <div 
+                key={clickedIcon === 'folder' ? `folder-${iconClickTick}` : undefined}
+                className={clickedIcon === 'folder' ? 'animate-icon-pop' : 'transition-transform group-hover:-translate-y-0.5'}
+              >
+                <Folder className="w-4 h-4 text-teal-400 shrink-0" />
+              </div>
               <span className="hidden md:inline text-teal-300">Periode:</span>
               <span className="hidden sm:inline font-bold text-white whitespace-nowrap text-xs">{period}</span>
             </button>
@@ -135,26 +152,38 @@ export const Header: React.FC<HeaderProps> = ({
             {currentUser.role === 'admin' && (
               <button
                 onClick={() => {
-                  if (window.confirm('Kembalikan semua data dan matriks regulasi ke ketetapan awal (CSV Baseline RSUD)?')) {
-                    onResetToDefault();
-                  }
+                  triggerIconAnim('reset', () => {
+                    if (window.confirm('Kembalikan semua data dan matriks regulasi ke ketetapan awal (CSV Baseline RSUD)?')) {
+                      onResetToDefault();
+                    }
+                  });
                 }}
-                className="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white items-center justify-center transition-colors"
+                className="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-90 border border-slate-700 text-slate-300 hover:text-white items-center justify-center transition-all group"
                 title="Reset ke Ketetapan Awal SK"
                 aria-label="Reset ke Default"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <div 
+                  key={clickedIcon === 'reset' ? `reset-${iconClickTick}` : undefined}
+                  className={clickedIcon === 'reset' ? 'animate-icon-spin' : 'transition-transform group-hover:-rotate-90'}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </div>
               </button>
             )}
 
             {/* Info Trigger */}
             <button
-              onClick={() => setShowInfo(true)}
-              className="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white items-center justify-center transition-colors"
+              onClick={() => triggerIconAnim('info', () => setShowInfo(true))}
+              className="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-90 border border-slate-700 text-slate-300 hover:text-white items-center justify-center transition-all group"
               title="Informasi Regulasi & SK Direktur"
               aria-label="Informasi Regulasi"
             >
-              <Info className="w-3.5 h-3.5" />
+              <div 
+                key={clickedIcon === 'info' ? `info-${iconClickTick}` : undefined}
+                className={clickedIcon === 'info' ? 'animate-icon-pop' : 'transition-transform group-hover:scale-110'}
+              >
+                <Info className="w-3.5 h-3.5" />
+              </div>
             </button>
           </div>
         </div>
@@ -192,7 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <ul className="list-disc list-inside space-y-0.5 text-slate-600 dark:text-slate-400">
                   <li>Kepatuhan penuh pada 15 kelompok regulasi (100,00%).</li>
                   <li>Real-time Cloud Sync antarsemua perangkat mobile dan komputer.</li>
-                  <li>Role-Based Access Control (Admin, Manager, dan Pegawai).</li>
+                  <li>Hak akses penuh Administrator untuk mengelola seluruh data, matriks regulasi, dan pengesahan.</li>
                   <li>Folder arsip per bulan dan tahun dengan audit kepatuhan otomatis.</li>
                 </ul>
               </div>
